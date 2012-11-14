@@ -9,6 +9,7 @@ import java.util.List;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+/** Simple Product Object */
 public class Product {
 	
 	/** Raw data values */
@@ -29,7 +30,7 @@ public class Product {
 		this.announced_date = object.getString("announced-date");	// required
 	}
 	
-	/** Simple product file reader, throws IOException for all file and json format errors. No error recovery. */
+	/** Simple products file reader, throws IOException for all file and json format errors. No error recovery. */
 	public static List<Product> loadProducts(String filename) throws IOException {
 		List<Product> result = new ArrayList<Product>();
 		
