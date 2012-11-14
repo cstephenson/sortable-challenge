@@ -5,13 +5,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-/** Storage and Logic for manufacturer identification. */
+/** Storage and logic for manufacturer based lookup and identification. */
 public class ManufacturerLookup {
 
-	/** list product names for each manufacturer. */
-	private final Map<String, List<String>> manufacturerToProductNames = new TreeMap<String, List<String>>();
+	/** list products for each manufacturer. */
+	private final Map<String, List<Product>> manufacturerToProducts = new TreeMap<String, List<Product>>();
 	
-	/** list of one to one manufacturer name aliases. */
+	/** model lookup for each manufacturer. */
+	private final Map<String, ModelLookup> manufacturerToModelLookup = new TreeMap<String, ModelLookup>();
+	
+	/** manufacturer lookup. */
 	private final KeywordLookup lookup; 
 	
 	/** Construct the lookup and all needed pre-computation. */
@@ -20,32 +23,91 @@ public class ManufacturerLookup {
 		// get the base map of cleaned manufacturer names to product names
 		for(Product product : products) {
 			String manufacturer = Challenge.clean(product.manufacturer);
-			List<String> list = this.manufacturerToProductNames.get(manufacturer);
-			if(list == null) {
-				list = new ArrayList<String>();
-				this.manufacturerToProductNames.put(manufacturer, list);
-			}
-			list.add(product.product_name);
+			put(this.manufacturerToProducts, manufacturer, product);
 		}
 		
 		// initialize the keyword lookup
-		this.lookup = new KeywordLookup(this.manufacturerToProductNames.keySet());
+		this.lookup = new KeywordLookup(this.manufacturerToProducts.keySet(), Challenge.MANUFACTURER_MATCH_DELTA);
+		
+		// create the model lookups for each manufacturer
+		for(Map.Entry<String, List<Product>> entry : this.manufacturerToProducts.entrySet()) {
+			String manufacturer = entry.getKey();
+			List<Product> manufacturerProducts = entry.getValue();
+			ModelLookup manufacturerModelLookup = new ModelLookup(manufacturerProducts);
+			this.manufacturerToModelLookup.put(manufacturer, manufacturerModelLookup);
+		}
 	}
 	
-	/** Do a multi word lookup of the listings manufacturer and return the best result. (null for no match) */
-	public String lookup(Listing listing) {
+	/** refactored map with list putting. */
+	private static void put(Map<String, List<Product>> map, String key, Product value) {
+		List<Product> list = map.get(key);
+		if(list == null) {
+			list = new ArrayList<Product>();
+			map.put(key, list);
+		}
+		list.add(value);
+	}
+	
+	/** 
+	 * Do a multi word lookup of the listing's manufacturer returning the best matching manufacturer. 
+	 * returns null for no good match. 
+	 */
+	public String lookupManufacturer(Listing listing) {
+		String manufacturer = Challenge.clean(listing.manufacturer);
+		String title = Challenge.clean(listing.title);
+		return lookupManufacturer(manufacturer, title);
+	}
+	
+	/** 
+	 * Do a multi word lookup of the listing's manufacturer returning the best matching manufacturer. 
+	 * returns null for no good match. 
+	 */
+	public String lookupManufacturer(String manufacturer, String title) {
 		
 		// lookup based on only manufacturer first
-		String manufacturer = Challenge.clean(listing.manufacturer);
-		String result = this.lookup.lookup(manufacturer);
+		String result = this.lookup.lookup(manufacturer, null);
 		
 		// lookup on manufacturer + title if the first did not return anything
 		if(result == null) {
-			String title = Challenge.clean(listing.title);
-			result = this.lookup.lookup(manufacturer + " " + title);
+			result = this.lookup.lookup(manufacturer + " " + title, null);
 		}
 		
 		return result;
+	}
+	
+	/** 
+	 * Do a multi word lookup of the listing's manufacturer and model (and family) returning the best matching product name. 
+	 * returns null for no good match. 
+	 */
+	public String lookupProductName(Listing listing) {
+		String manufacturer = Challenge.clean(listing.manufacturer);
+		String title = Challenge.clean(listing.title);
+		return lookupProductName(manufacturer, title);
+	}
+	
+	/** 
+	 * Do a multi word lookup of the listing's manufacturer and model (and family) returning the best matching product name. 
+	 * returns null for no good match. 
+	 */
+	public String lookupProductName(String manufacturer, String title) {
+		
+		// find the manufacturer first
+		String manufacturerResult = lookupManufacturer(manufacturer, title);
+		
+		// lookup within the manufacturer's products
+		if(manufacturerResult != null) {
+			ModelLookup manufacturerLookup = manufacturerToModelLookup.get(manufacturerResult);
+			if (manufacturerLookup != null) {
+				String result = manufacturerLookup.lookupProductName(manufacturer, title);
+				if(result != null) {
+					// found it
+					return result;
+				}
+			}			
+		}
+		
+		// not found
+		return null;
 	}
 	
 }
