@@ -61,7 +61,7 @@ public class Challenge {
 		// simple usage message
 		if(args.length != 3)
 		{
-			System.out.println("Usage is: java [-options] " + Challenge.class.getName() + " [product file] [listing file] [output file]");
+			System.out.println("Usage is: java -jar sortable-challenge.jar [product file] [listing file] [output file]");
 			return;
 		}
 		
